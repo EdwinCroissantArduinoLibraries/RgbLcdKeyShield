@@ -243,7 +243,7 @@ void RgbLcdKeyShield::noAutoscroll() {
 void RgbLcdKeyShield::createChar(uint8_t location,  const uint8_t *charmap) {
 	location &= 0x7;   // we only have 8 memory locations 0-7
 	_lcdTransmit(setCgRamAdr | location << 3, true);
-	write(charmap, 7);
+	write(charmap, 8);
 	_lcdTransmit(setDdRamAdr, true); // cursor position is lost
 }
 
@@ -255,7 +255,7 @@ void RgbLcdKeyShield::createChar(uint8_t location,  const uint8_t *charmap) {
 void RgbLcdKeyShield::createCharP(uint8_t location, const uint8_t *charmap) {
 	location &= 0x7;   // we only have 8 memory locations 0-7
 	_lcdTransmit(setCgRamAdr | location << 3, true);
-	writeP(charmap, 7);
+	writeP(charmap, 8);
 	_lcdTransmit(setDdRamAdr, true); // cursor position is lost
 }
 
@@ -335,8 +335,6 @@ size_t RgbLcdKeyShield::write(const uint8_t* buffer, size_t size) {
 	return n;
 }
 
-
-
 /*
  * Read the keys. To be placed in the main loop.
  */
@@ -353,7 +351,6 @@ void RgbLcdKeyShield::readKeys() {
 	keyRight.read(keyState & B00000010);
 	keySelect.read(keyState & B00000001);
 }
-
 
 // Private declarations--------------------------------------------
 
