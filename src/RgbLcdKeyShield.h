@@ -23,10 +23,9 @@
  */
 /*
  * HISTORY:
- * version 0.0 2017/06/18 initial version
+ * version 0.0.0 2017/06/18 initial version
+ * version 0.0.1 2017/06/19 introduced writeP, printP and createCharP plus bug fixes
  */
-
-#if defined(__AVR_ATmega168__) || defined(__AVR_ATmega168P__) || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega32U4__)
 
 #ifndef RgbLcdKeyShield_H
 #define RgbLcdKeyShield_H
@@ -71,9 +70,13 @@ public:
 	void moveCursorLeft();
 	void autoscroll();
 	void noAutoscroll();
-	void createChar(uint8_t location, const char *charmap);
+	void createChar(uint8_t location, const uint8_t *charmap);
+#ifdef __AVR__
+	void createCharP(uint8_t location, const uint8_t *charmap);
+	size_t printP(const char str[]);
+	size_t writeP(const uint8_t *buffer, size_t size);
+#endif // __AVR__
 	virtual size_t write(uint8_t c);
-	virtual size_t write(const char* s);
 	size_t write(const uint8_t *buffer, size_t size) override;
 	void readKeys();
 	SimpleKeyHandler keyLeft;
@@ -106,7 +109,7 @@ private:
 		setCgRamAdr = 0x40,
 		setDdRamAdr = 0x80,
 		// flags for entry mode set
-		autoShiftFlag =  0x01,
+		autoShiftFlag = 0x01,
 		right2LeftFlag = 0x02, // 1 = right to left, 0 = left to right
 		// flags for display on/off control
 		displayOnFlag = 0x04,
@@ -137,6 +140,3 @@ private:
 
 #endif //  RgbLcdKeyShield_H
 
-#else
-#error not a suitable ATmega microcontroller...
-#endif

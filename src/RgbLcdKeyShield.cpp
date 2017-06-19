@@ -237,17 +237,73 @@ void RgbLcdKeyShield::noAutoscroll() {
 }
 
 /*
+ * Loads a special character
+ * The cursor position is lost after this call
+ */
+void RgbLcdKeyShield::createChar(uint8_t location,  const uint8_t *charmap) {
+	location &= 0x7;   // we only have 8 memory locations 0-7
+	_lcdTransmit(setCgRamAdr | location << 3, true);
+	write(charmap, 7);
+	_lcdTransmit(setDdRamAdr, true); // cursor position is lost
+}
+
+#ifdef __AVR__
+/*
  * Loads a special character from program memory
  * The cursor position is lost after this call
  */
-void RgbLcdKeyShield::createChar(uint8_t location, const char* charmap) {
+void RgbLcdKeyShield::createCharP(uint8_t location, const uint8_t *charmap) {
 	location &= 0x7;   // we only have 8 memory locations 0-7
 	_lcdTransmit(setCgRamAdr | location << 3, true);
-	for (int i = 0; i < 8; ++i) {
-		write(pgm_read_byte(&charmap[i]));
-	}
+	writeP(charmap, 7);
 	_lcdTransmit(setDdRamAdr, true); // cursor position is lost
 }
+
+/*
+ * Writes a string in program memory to the display making full
+ * use of the wire transmit buffer.
+ */
+size_t RgbLcdKeyShield::printP(const char str[]) {
+	/*
+	 * The Wire transmit buffer size is 32 bytes, for each character
+	 * Each character takes 4 bytes so a maximum of seven characters
+	 * are sent in one transmission
+	 */
+	size_t n = 0;
+	char c = pgm_read_byte(&str[n]);
+	while (c) {
+		Wire.beginTransmission(I2Caddr);
+		Wire.write(GPIOB);
+		do { _lcdWrite8(c, false);
+			c = pgm_read_byte(&str[++n]);
+			} while (c && ( n % 7));
+		Wire.endTransmission();
+	};
+	return n;
+}
+
+/*
+ * does the same as write(const uint8_t* buffer, size_t size)
+ * but from program memory instead
+ */
+size_t RgbLcdKeyShield::writeP(const uint8_t* buffer, size_t size) {
+	/*
+	 * The Wire transmit buffer size is 32 bytes, for each character
+	 * Each character takes 4 bytes so a maximum of seven characters
+	 * are sent in one transmission
+	 */
+	size_t n = 0;
+	while (n < size) {
+		Wire.beginTransmission(I2Caddr);
+		Wire.write(GPIOB);
+		do {
+			_lcdWrite8(pgm_read_byte(&buffer[n++]), false);
+		} while (n < size && (n % 7));
+		Wire.endTransmission();
+	}
+	return n;
+}
+#endif // __AVR__
 
 /*
  * Writes a character to the screen
@@ -255,29 +311,6 @@ void RgbLcdKeyShield::createChar(uint8_t location, const char* charmap) {
 size_t RgbLcdKeyShield::write(uint8_t c) {
 	_lcdTransmit(c, false);
 	return 1;
-}
-
-/*
- * Writes a string in program memory to the display making full
- * use of the wire transmit buffer.
- */
-size_t RgbLcdKeyShield::write(const char* s) {
-	/*
-	 * The Wire transmit buffer size is 32 bytes, for each character
-	 * Each character takes 4 bytes so a maximum of seven characters
-	 * are sent in one transmission
-	 */
-	size_t n = 0;
-	char c = pgm_read_byte(&s[n]);
-	while (c) {
-		Wire.beginTransmission(I2Caddr);
-		Wire.write(GPIOB);
-		do { _lcdWrite8(c, false);
-			c = pgm_read_byte(&s[++n]);
-			} while (c && ( n % 7));
-		Wire.endTransmission();
-	};
-	return n;
 }
 
 /*
@@ -301,6 +334,8 @@ size_t RgbLcdKeyShield::write(const uint8_t* buffer, size_t size) {
 	}
 	return n;
 }
+
+
 
 /*
  * Read the keys. To be placed in the main loop.

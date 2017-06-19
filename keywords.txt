@@ -32,7 +32,10 @@ moveCursorLeft
 autoscroll	KEYWORD2
 noAutoscroll	KEYWORD2
 createChar	KEYWORD2
+createCharP	KEYWORD2
 write KEYWORD2
+writeP KEYWORD2
+printP KEYWORD2
 #######################################
 # Constants (LITERAL1)
 #######################################
