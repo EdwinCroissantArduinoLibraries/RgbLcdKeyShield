@@ -25,6 +25,7 @@
  * HISTORY:
  * version 0.0.0 2017/06/18 initial version
  * version 0.0.1 2017/06/19 introduced writeP, printP and createCharP plus bug fixes
+ * version 0.0.2 2017/06/20 merged SimpleKeyHandler and more bug fixes
  */
 
 #ifndef RgbLcdKeyShield_H
@@ -32,7 +33,39 @@
 
 #include "Arduino.h"
 #include "Wire.h"
-#include "SimpleKeyHandler.h"
+
+class SimpleKeyHandler {
+public:
+	SimpleKeyHandler();
+	void read(bool keyState);
+	void clear();
+	bool isPressed();
+	// Called when the key is released before the long press time expired.
+	void (*onShortPress)();
+	// Called when the long press time expired
+	void (*onLongPress)();
+	// Repeatedly called when the long press time expired
+	void (*onRepPress)();
+	// Repeatedly called when the long press time expired, the count is passed as an argument
+	void (*onRepPressCount)(uint16_t count);
+	// Called when both key are pressed
+	void (*onBothPress)();
+	void setCompanion(SimpleKeyHandler* companion);
+
+private:
+	enum lastKeyState {
+		keyOff, keyToOn, keyOn, keyToOff
+	} _previousState;
+	enum keyTime {
+		debounce = 50,
+		longPress = 500,
+		repeatInterval = 250
+	};
+	uint32_t _nextValidRead;
+	uint16_t _count;
+	SimpleKeyHandler* _companion;
+};
+
 
 class RgbLcdKeyShield: public Print {
 public:
