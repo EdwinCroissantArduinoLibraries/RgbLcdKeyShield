@@ -77,12 +77,15 @@ void SimpleKeyHandler::read(bool keyState) {
 			// callback after long press and repeat after the repeat interval
 			if (millis() >= _nextValidRead) {
 				_nextValidRead = millis() + repeatInterval;
-				if (onLongPress && _count == 0)
-					onLongPress();
-				if (onRepPressCount)
-					onRepPressCount(_count);
-				if (onRepPress)
-					onRepPress();
+				// prevent events when companion is pressed
+				if (!(_companion && _companion->_previousState == keyOn)) {
+					if (onLongPress && _count == 0)
+						onLongPress();
+					if (onRepPressCount)
+						onRepPressCount(_count);
+					if (onRepPress)
+						onRepPress();
+				}
 				_count++;
 			} else if (_count == 0 && _companion
 					&& _companion->_previousState == keyOn
@@ -91,7 +94,7 @@ void SimpleKeyHandler::read(bool keyState) {
 					onBothPress();
 				else if (_companion->onBothPress)
 					_companion->onBothPress();
-				// prevent each key to callback shortpress
+				// prevent each key to callback onShortPress
 				_count++;
 				_companion->_count++;
 			}

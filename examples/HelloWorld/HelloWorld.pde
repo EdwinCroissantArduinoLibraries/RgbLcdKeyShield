@@ -45,9 +45,11 @@ void setup() {
 	lcd.begin();
 	// attach the functions to the keys
 	lcd.keyUp.onShortPress = setRed;
-	lcd.keyUp.onLongPress = beepHigh;
+	lcd.keyUp.onLongPress = beep;
+	lcd.keyUp.setCompanion(&lcd.keyDown);
+	lcd.keyUp.onBothPress = setViolet;
 	lcd.keyDown.onShortPress = setGreen;
-	lcd.keyDown.onLongPress = beepLow;
+	lcd.keyDown.onRepPressCount = beepLadder;
 	lcd.keyLeft.onShortPress = setBlue;
 	lcd.keyLeft.onRepPress = moveLeft;
 	lcd.keyRight.onShortPress = setYellow;
@@ -125,10 +127,24 @@ void moveRight() {
 	lcd.scrollDisplayRight();
 }
 
-void beepLow () {
-	tone (buzzerPin,622,1000);
+/*
+ * Please note the non blocking nature of the key handler.
+ * At this moment it is possible to changes the colors
+ * of the display while the tone ladder is played.
+ */
+
+void beepLadder (uint16_t count) {
+	static const uint16_t tones[] PROGMEM = {
+	440, 494, 523, 587, 659, 698, 784, 880
+	};
+	count &= 0x07;
+	tone (buzzerPin,pgm_read_word(&tones[count]),100);
 }
 
-void beepHigh () {
+void beep () {
 	tone (buzzerPin,784,1000);
+}
+
+void setViolet() {
+	lcd.setColor(RgbLcdKeyShield::clViolet);
 }
