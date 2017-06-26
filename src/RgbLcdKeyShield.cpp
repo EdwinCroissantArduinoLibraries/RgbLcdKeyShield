@@ -25,23 +25,31 @@
 #include <RgbLcdKeyShield.h>
 
 //--------------------------------SimpleKeyHandler----------------------------
+/*
+ * These variables and function pointer are defined as static as they
+ * are common for all instances of this class
+ */
+uint16_t SimpleKeyHandler::_count = 0;
+SimpleKeyHandler* SimpleKeyHandler::_activeKey = nullptr;
+SimpleKeyHandler* SimpleKeyHandler::_otherKey = nullptr;
+void (*SimpleKeyHandler::onTwoPress)(const SimpleKeyHandler* senderKey,
+		const SimpleKeyHandler* otherKey) = nullptr;
 
 SimpleKeyHandler::SimpleKeyHandler() {
 	clear();
-	_companion = nullptr;
 	_nextValidRead = 0;
 	_previousState = keyOff;
-	_count = 0;
+	_allowEvents = false;
 }
 /*
- * Clears all the callback pointer;
+ * Clears all the callback pointers;
  */
 void SimpleKeyHandler::clear() {
 	onShortPress = nullptr;
 	onLongPress = nullptr;
-	onBothPress = nullptr;
 	onRepPress = nullptr;
 	onRepPressCount = nullptr;
+	onTwoPress = nullptr;
 }
 
 /*
@@ -63,6 +71,13 @@ void SimpleKeyHandler::read(bool keyState) {
 				// when still on advance to the next state
 				_previousState = keyOn;
 				_nextValidRead = millis() + longPress;
+				// disable the other keys
+				if (!_activeKey)
+					_activeKey = this;
+				// try to claim the other key
+				else if (!_otherKey)
+						_otherKey = this;
+				_allowEvents = (_activeKey == this);
 			} else
 				// otherwise it was a glitch
 				_previousState = keyOff;
@@ -77,26 +92,25 @@ void SimpleKeyHandler::read(bool keyState) {
 			// callback after long press and repeat after the repeat interval
 			if (millis() >= _nextValidRead) {
 				_nextValidRead = millis() + repeatInterval;
-				// prevent events when companion is pressed
-				if (!(_companion && _companion->_previousState == keyOn)) {
+				// prevent events when disabled
+				if ((_allowEvents)) {
 					if (onLongPress && _count == 0)
 						onLongPress();
 					if (onRepPressCount)
 						onRepPressCount(_count);
 					if (onRepPress)
 						onRepPress();
+					_count++;
 				}
-				_count++;
-			} else if (_count == 0 && _companion
-					&& _companion->_previousState == keyOn
-					&& _companion->_count == 0) {
-				if (onBothPress)
-					onBothPress();
-				else if (_companion->onBothPress)
-					_companion->onBothPress();
-				// prevent each key to callback onShortPress
-				_count++;
-				_companion->_count++;
+			} else {
+				// handle the two key press;
+				if (_allowEvents && _otherKey && _count == 0) {
+					if (onTwoPress) {
+						onTwoPress(this, _otherKey);
+						// this is the only callback we do
+						_allowEvents = false;
+					}
+				}
 			}
 		}
 		break;
@@ -106,11 +120,15 @@ void SimpleKeyHandler::read(bool keyState) {
 			if (!keyState) {
 				// when off advance to the next state
 				_previousState = keyOff;
-				// if key was released within the long press time callback
-				if (onShortPress && _count == 0)
-					onShortPress();
-				else
+				if (_allowEvents && onShortPress && _count == 0)
+					// if key was released within the long press time callback
+						onShortPress();
+				// clean up if active key
+				if (_activeKey == this) {
 					_count = 0;
+					_activeKey = nullptr;
+					_otherKey = nullptr;
+				}
 			} else
 				// otherwise it was a glitch
 				_previousState = keyOn;
@@ -126,32 +144,46 @@ bool SimpleKeyHandler::isPressed() {
 	return _previousState == keyOn;
 }
 
-/*
- * Couples a companion key. When both keys are pressed the
- * onBothPressed is executed. Only one key has to be coupled
- */
-void SimpleKeyHandler::setCompanion(SimpleKeyHandler* companion) {
-	if (companion) {
-		if (_companion) {
-			_companion->_companion = nullptr;
-		}
-		_companion = companion;
-		_companion->_companion = this;
-	} else {
-		if (_companion) {
-			_companion->_companion = nullptr;
-		}
-		_companion = companion;
-	}
-}
-
 //--------------------------------RgbLcdKeyShield----------------------------
+
+/*
+ * WTF? DB4 is connected to GPB4, DB5 to GPB3, DB6 to GPB2 and DB7 to GPB1
+ * Fasted way translating this is a 15 byte lookup table. Additionally:
+ * GPB7 (RS (register select)) is set as most traffic is to the data register
+ * GPB6 (R/W) is set low as this is a write operation
+ * GPB5 (E) is set high
+ *
+ * The table is defined as static in the header file so that it is
+ * compiled only once when more instances of this class are created.
+ */
+#ifdef __AVR__
+	const uint8_t RgbLcdKeyShield::_nibbleToPin[16] PROGMEM = {
+#else
+	const uint8_t RgbLcdKeyShield::_nibbleToPin[16] = {
+#endif // __AVR__
+			B10100000,	// 0000
+			B10110000,	// 0001
+			B10101000,	// 0010
+			B10111000,	// 0011
+			B10100100,	// 0100
+			B10110100,	// 0101
+			B10101100,	// 0110
+			B10111100,	// 0111
+			B10100010,	// 1000
+			B10110010,	// 1001
+			B10101010,	// 1010
+			B10111010,	// 1011
+			B10100110,	// 1100
+			B10110110,	// 1101
+			B10101110,	// 1110
+			B10111110	// 1111
+			};
 
 RgbLcdKeyShield::RgbLcdKeyShield() {
 	_shadowGPIOA = B11000000; // set bit 6 (red led) and 7 (green led) high
 	_shadowGPIOB = B00100001; // set bit 0 (blue led) and 5 (lcd enable) high
 	_shadowDisplayControl = displayControl | displayOnFlag; // set on, no cursor and no blinking
-	_shadowEntryModeSet = entryModeSet;
+	_shadowEntryModeSet = entryModeSet | left2RightFlag; // left to right, no shift
 }
 
 /*
@@ -201,7 +233,8 @@ void RgbLcdKeyShield::begin(void) {
 	// should be in 8 bit mode now so set to 4 bit mode
 	_lcdWrite4(B0010, true);
 	// set 2 lines and 5x8 dots
-	_lcdWrite8(B00101000, true);
+	_lcdWrite8(functionSet | lineMode2Flag, true);
+	// set on, no cursor and no blinking
 	_lcdWrite8(_shadowDisplayControl, true);
 	Wire.endTransmission();
 
@@ -210,10 +243,13 @@ void RgbLcdKeyShield::begin(void) {
 
 /*
  * Clear the display and set the cursor in the upper left corner,
+ * set left to right (undocumented :( )
  * takes about two milliseconds.
  */
 void RgbLcdKeyShield::clear() {
 	_lcdTransmit(clearDisplay, true);
+	// Synchronize left2RightFlag;
+	_shadowEntryModeSet = entryModeSet | left2RightFlag; // left to right, no shift
 	delay(2);
 }
 
@@ -312,7 +348,7 @@ void RgbLcdKeyShield::scrollDisplayLeft() {
  * from left to right.
  */
 void RgbLcdKeyShield::leftToRight() {
-	_shadowEntryModeSet &= ~right2LeftFlag;
+	_shadowEntryModeSet |= left2RightFlag;
 	_lcdTransmit(_shadowEntryModeSet, true);
 }
 
@@ -321,7 +357,7 @@ void RgbLcdKeyShield::leftToRight() {
  * from right to left.
  */
 void RgbLcdKeyShield::rightToLeft() {
-	_shadowEntryModeSet |= right2LeftFlag;
+	_shadowEntryModeSet &= ~left2RightFlag;
 	_lcdTransmit(_shadowEntryModeSet, true);
 }
 
@@ -363,11 +399,11 @@ void RgbLcdKeyShield::noAutoscroll() {
  * Loads a special character
  * The cursor position is lost after this call
  */
-void RgbLcdKeyShield::createChar(uint8_t location,  const uint8_t *charmap) {
+void RgbLcdKeyShield::createChar(uint8_t location, const uint8_t *charmap) {
 	location &= 0x7;   // we only have 8 memory locations 0-7
 	_lcdTransmit(setCgRamAdr | location << 3, true);
 	write(charmap, 8);
-	_lcdTransmit(setDdRamAdr, true); // cursor position is lost
+	_lcdTransmit(setDdRamAdr, true);   // cursor position is lost
 }
 
 #ifdef __AVR__
@@ -379,7 +415,7 @@ void RgbLcdKeyShield::createCharP(uint8_t location, const uint8_t *charmap) {
 	location &= 0x7;   // we only have 8 memory locations 0-7
 	_lcdTransmit(setCgRamAdr | location << 3, true);
 	writeP(charmap, 8);
-	_lcdTransmit(setDdRamAdr, true); // cursor position is lost
+	_lcdTransmit(setDdRamAdr, true);   // cursor position is lost
 }
 
 /*
@@ -397,9 +433,10 @@ size_t RgbLcdKeyShield::printP(const char str[]) {
 	while (c) {
 		Wire.beginTransmission(I2Caddr);
 		Wire.write(GPIOB);
-		do { _lcdWrite8(c, false);
+		do {
+			_lcdWrite8(c, false);
 			c = pgm_read_byte(&str[++n]);
-			} while (c && ( n % 7));
+		} while (c && (n % 7));
 		Wire.endTransmission();
 	};
 	return n;
@@ -475,6 +512,17 @@ void RgbLcdKeyShield::readKeys() {
 	keySelect.read(keyState & B00000001);
 }
 
+/*
+ * Clear all the callback pointers
+ */
+void RgbLcdKeyShield::clearKeys() {
+	keyLeft.clear();
+	keyUp.clear();
+	keyDown.clear();
+	keyRight.clear();
+	keySelect.clear();
+}
+
 // Private declarations--------------------------------------------
 
 /*
@@ -491,47 +539,17 @@ void RgbLcdKeyShield::_wireTransmit(uint8_t reg, uint8_t value) {
  * Helper function to write a nibble to the display
  */
 void RgbLcdKeyShield::_lcdWrite4(uint8_t value, bool lcdInstruction) {
-	/*
-	 * WTF? DB4 is connected to GPB4, DB5 to GPB3, DB6 to GPB2 and DB7 to GPB1
-	 * Fasted way translating this is a 15 byte lookup table. Additionally:
-	 * GPB7 (RS (register select)) is set as most traffic is to the data register
-	 * GPB6 (R/W) is set low as this is a write operation
-	 * GPB5 (E) is set high
-	 */
-#ifdef __AVR__
-	const static uint8_t nibbleToPin[] PROGMEM = {
-#else
-	const static uint8_t nibbleToPin[]  = {
-#endif // __AVR__
-		B10100000,	// 0000
-		B10110000,	// 0001
-		B10101000,	// 0010
-		B10111000,	// 0011
-		B10100100,	// 0100
-		B10110100,	// 0101
-		B10101100,	// 0110
-		B10111100,	// 0111
-		B10100010,	// 1000
-		B10110010,	// 1001
-		B10101010,	// 1010
-		B10111010,	// 1011
-		B10100110,	// 1100
-		B10110110,	// 1101
-		B10101110,	// 1110
-		B10111110	// 1111
-	};
-
 	// clear the lcd bits of shadowB
 	_shadowGPIOB &= B00000001;
 	// Translate the least nibble only
 #ifdef __AVR__
-	_shadowGPIOB |= pgm_read_byte(&nibbleToPin[value & B00001111]);
+	_shadowGPIOB |= pgm_read_byte(&_nibbleToPin[value & B00001111]);
 #else
-	_shadowGPIOB |= nibbleToPin[value & B00001111];
+	_shadowGPIOB |= _nibbleToPin[value & B00001111];
 #endif // __AVR__
 	// if the instruction register is addressed clear bit 7
 	if (lcdInstruction)
-	_shadowGPIOB &= B01111111;
+		_shadowGPIOB &= B01111111;
 	// sent the data
 	Wire.write(_shadowGPIOB);
 	// Toggle the enable bit
@@ -558,3 +576,4 @@ void RgbLcdKeyShield::_lcdTransmit(uint8_t value, bool lcdInstruction) {
 	_lcdWrite8(value, lcdInstruction);
 	Wire.endTransmission();
 }
+

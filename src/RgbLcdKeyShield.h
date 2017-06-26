@@ -28,6 +28,7 @@
  * version 0.0.2 2017/06/20 merged SimpleKeyHandler and more bug fixes
  * version 0.0.3 2017/16/20 block onLongRepPress and OnLongRepPressedCount when companion
  * 							was pressed
+ * version 0.0.4 2017/16/20 SimpleKeyHandler can now detect any two keys pressed
  */
 
 #ifndef RgbLcdKeyShield_H
@@ -50,10 +51,8 @@ public:
 	void (*onRepPress)();
 	// Repeatedly called when the long press time expired, the count is passed as an argument
 	void (*onRepPressCount)(uint16_t count);
-	// Called when both key are pressed
-	void (*onBothPress)();
-	void setCompanion(SimpleKeyHandler* companion);
-
+	// Called when two keys are pressed at the same time
+	static void (*onTwoPress)(const SimpleKeyHandler* senderKey, const SimpleKeyHandler* otherKey);
 private:
 	enum lastKeyState {
 		keyOff, keyToOn, keyOn, keyToOff
@@ -64,10 +63,11 @@ private:
 		repeatInterval = 250
 	};
 	uint32_t _nextValidRead;
-	uint16_t _count;
-	SimpleKeyHandler* _companion;
+	bool _allowEvents;
+	static uint16_t _count;
+	static SimpleKeyHandler* _activeKey;
+	static SimpleKeyHandler* _otherKey;
 };
-
 
 class RgbLcdKeyShield: public Print {
 public:
@@ -114,6 +114,7 @@ public:
 	virtual size_t write(uint8_t c);
 	size_t write(const uint8_t *buffer, size_t size) override;
 	void readKeys();
+	void clearKeys();
 	SimpleKeyHandler keyLeft;
 	SimpleKeyHandler keyRight;
 	SimpleKeyHandler keyUp;
@@ -145,7 +146,7 @@ private:
 		setDdRamAdr = 0x80,
 		// flags for entry mode set
 		autoShiftFlag = 0x01,
-		right2LeftFlag = 0x02, // 1 = right to left, 0 = left to right
+		left2RightFlag = 0x02, // 1 = left to right, 0 = right to left,
 		// flags for display on/off control
 		displayOnFlag = 0x04,
 		cursorOnFlag = 0x02,
@@ -167,11 +168,16 @@ private:
 	uint8_t _shadowDisplayControl;
 	uint8_t _shadowEntryModeSet;
 
+	// translation table from nibble to pin
+	static const uint8_t _nibbleToPin[16];
+
 	void _wireTransmit(uint8_t reg, uint8_t value);
 	void _lcdWrite4(uint8_t value, bool lcdInstruction);
 	void _lcdWrite8(uint8_t value, bool lcdInstruction);
 	void _lcdTransmit(uint8_t value, bool lcdInstruction);
 };
+
+
 
 #endif //  RgbLcdKeyShield_H
 
