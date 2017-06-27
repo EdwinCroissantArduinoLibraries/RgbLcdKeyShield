@@ -2,7 +2,7 @@
  * This is a library for the Adafruit RGB LCD Shield Kit and the
  * RobotDyn LCD RGB 16x2 + keypad + Buzzer Shield for Arduino
  *
- * Uses the Wire and SimpleKeyHandler library
+ * Uses the Wire library
  *
  * Copyright (C) 2017 Edwin Croissant
  *
@@ -22,13 +22,14 @@
  * See the README.md file for additional information.
  */
 /*
- * HISTORY:
- * version 0.0.0 2017/06/18 initial version
- * version 0.0.1 2017/06/19 introduced writeP, printP and createCharP plus bug fixes
- * version 0.0.2 2017/06/20 merged SimpleKeyHandler and more bug fixes
- * version 0.0.3 2017/16/20 block onLongRepPress and OnLongRepPressedCount when companion
+ * version
+ * 0.0.0	2017/06/18 initial version
+ * 0.0.1	2017/06/19 introduced writeP, printP and createCharP plus bug fixes
+ * 0.0.2	2017/06/20 merged SimpleKeyHandler and more bug fixes
+ * 0.0.3	2017/16/20 block onLongRepPress and OnLongRepPressedCount when companion
  * 							was pressed
- * version 0.0.4 2017/16/20 SimpleKeyHandler can now detect any two keys pressed
+ * 0.0.4	2017/16/20 SimpleKeyHandler can now detect any two keys pressed
+ * 0.0.5	2017/27/27 updated version
  */
 
 #ifndef RgbLcdKeyShield_H

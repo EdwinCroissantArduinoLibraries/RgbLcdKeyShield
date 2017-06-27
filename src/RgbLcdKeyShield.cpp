@@ -426,7 +426,7 @@ size_t RgbLcdKeyShield::printP(const char str[]) {
 	/*
 	 * The Wire transmit buffer size is 32 bytes, for each character
 	 * Each character takes 4 bytes so a maximum of seven characters
-	 * are sent in one transmission
+	 * are send in one transmission
 	 */
 	size_t n = 0;
 	char c = pgm_read_byte(&str[n]);
@@ -450,7 +450,7 @@ size_t RgbLcdKeyShield::writeP(const uint8_t* buffer, size_t size) {
 	/*
 	 * The Wire transmit buffer size is 32 bytes, for each character
 	 * Each character takes 4 bytes so a maximum of seven characters
-	 * are sent in one transmission
+	 * are send in one transmission
 	 */
 	size_t n = 0;
 	while (n < size) {
@@ -481,7 +481,7 @@ size_t RgbLcdKeyShield::write(const uint8_t* buffer, size_t size) {
 	/*
 	 * The Wire transmit buffer size is 32 bytes, for each character
 	 * Each character takes 4 bytes so a maximum of seven characters
-	 * are sent in one transmission
+	 * are send in one transmission
 	 */
 	size_t n = 0;
 	while (n < size) {
@@ -550,11 +550,11 @@ void RgbLcdKeyShield::_lcdWrite4(uint8_t value, bool lcdInstruction) {
 	// if the instruction register is addressed clear bit 7
 	if (lcdInstruction)
 		_shadowGPIOB &= B01111111;
-	// sent the data
+	// send the data
 	Wire.write(_shadowGPIOB);
 	// Toggle the enable bit
 	_shadowGPIOB ^= B00100000;
-	// and sent again
+	// and send again
 	Wire.write(_shadowGPIOB);
 }
 
