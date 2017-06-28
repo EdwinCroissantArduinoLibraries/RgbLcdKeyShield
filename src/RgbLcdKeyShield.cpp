@@ -196,8 +196,9 @@ void RgbLcdKeyShield::begin(void) {
 	 * Set the MCP23017 in 8 bit mode , sequential addressing
 	 * disabled and slew rate disabled by writing to
 	 * register 0x0b.
-	 * As this register is not present in
-	 * 16 bit mode we can safely write to it in case the
+	 * As this register is not present in 16 bit mode
+	 * we can safely write to it after a hot reset
+	 * of the controlling device as in this case the
 	 * MCP23017 is already in 8 bit mode which is possible
 	 * as the hardware reset of the device is not used.
 	 */
@@ -236,9 +237,14 @@ void RgbLcdKeyShield::begin(void) {
 	_lcdWrite8(functionSet | lineMode2Flag, true);
 	// set on, no cursor and no blinking
 	_lcdWrite8(_shadowDisplayControl, true);
+	// left to right, no shift
+	_lcdWrite8(_shadowEntryModeSet, true);
 	Wire.endTransmission();
 
+	// Clear entire display
 	clear();
+	// Return a shifted display to its original position
+	home();
 }
 
 /*
