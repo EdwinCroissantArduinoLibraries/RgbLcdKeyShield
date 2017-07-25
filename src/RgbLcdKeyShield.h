@@ -26,10 +26,11 @@
  * 0.0.0	2017/06/18 initial version
  * 0.0.1	2017/06/19 introduced writeP, printP and createCharP plus bug fixes
  * 0.0.2	2017/06/20 merged SimpleKeyHandler and more bug fixes
- * 0.0.3	2017/16/20 block onLongRepPress and OnLongRepPressedCount when companion
+ * 0.0.3	2017/06/20 block onLongRepPress and OnLongRepPressedCount when companion
  * 							was pressed
- * 0.0.4	2017/16/20 SimpleKeyHandler can now detect any two keys pressed
- * 0.0.5	2017/27/27 updated version
+ * 0.0.4	2017/06/20 SimpleKeyHandler can now detect any two keys pressed
+ * 0.0.5	2017/06/27 updated version
+ * 0.0.6	2017/07/25 introduced read and getCursor for the lcd
  */
 
 #ifndef RgbLcdKeyShield_H
@@ -114,6 +115,10 @@ public:
 #endif // __AVR__
 	virtual size_t write(uint8_t c);
 	size_t write(const uint8_t *buffer, size_t size) override;
+	uint8_t read();
+	size_t read(uint8_t *buffer, size_t size);
+	uint8_t getCursor();
+
 	void readKeys();
 	void clearKeys();
 	SimpleKeyHandler keyLeft;
@@ -176,6 +181,10 @@ private:
 	void _lcdWrite4(uint8_t value, bool lcdInstruction);
 	void _lcdWrite8(uint8_t value, bool lcdInstruction);
 	void _lcdTransmit(uint8_t value, bool lcdInstruction);
+	void _prepareRead(bool lcdInstruction);
+	uint8_t _lcdRead4();
+	inline uint8_t _lcdRead8();
+	inline void _cleanupRead();
 };
 
 

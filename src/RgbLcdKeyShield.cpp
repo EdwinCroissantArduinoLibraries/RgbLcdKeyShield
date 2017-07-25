@@ -41,15 +41,15 @@ SimpleKeyHandler::SimpleKeyHandler() {
 	_previousState = keyOff;
 	_allowEvents = false;
 }
+
 /*
- * Clears all the callback pointers;
+ * Clears all the callback pointers of the key (not onTwopress).
  */
 void SimpleKeyHandler::clear() {
 	onShortPress = nullptr;
 	onLongPress = nullptr;
 	onRepPress = nullptr;
 	onRepPressCount = nullptr;
-	onTwoPress = nullptr;
 }
 
 /*
@@ -502,6 +502,41 @@ size_t RgbLcdKeyShield::write(const uint8_t* buffer, size_t size) {
 }
 
 /*
+ * Reads a character from the screen
+ */
+uint8_t RgbLcdKeyShield::read() {
+	uint8_t value;
+	_prepareRead(false);
+	value =  _lcdRead8();
+	_cleanupRead();
+	return value;
+}
+
+/*
+ * Reads multiple characters from the screen into a buffer
+ */
+size_t RgbLcdKeyShield::read(uint8_t* buffer, size_t size) {
+	size_t n = 0;
+	_prepareRead(false);
+	while (n < size) {
+		buffer[n++] = _lcdRead8();
+	}
+	_cleanupRead();
+	return n;
+}
+
+/*
+ * Read the cursor position
+ */
+uint8_t RgbLcdKeyShield::getCursor() {
+	uint8_t value;
+	_prepareRead(true);
+	value = _lcdRead8();
+	_cleanupRead();
+	return value;
+}
+
+/*
  * Read the keys. To be placed in the main loop.
  */
 void RgbLcdKeyShield::readKeys() {
@@ -583,3 +618,54 @@ void RgbLcdKeyShield::_lcdTransmit(uint8_t value, bool lcdInstruction) {
 	Wire.endTransmission();
 }
 
+/*
+ * Helper function to prepare for a read
+ */
+void RgbLcdKeyShield::_prepareRead(bool lcdInstruction) {
+	// set lcd data pins of GPIOB as input
+	_wireTransmit(IODIRB, B00011110);
+	// clear the lcd bits of shadowB
+	_shadowGPIOB &= B00000001;
+	if (lcdInstruction)	// set R/W high
+		_shadowGPIOB |= B01000000;
+	else // set RS, and R/W high
+		_shadowGPIOB |= B11000000;
+	_wireTransmit(GPIOB, _shadowGPIOB);
+}
+
+/*
+ * Helper function to read a nibble from the display
+ */
+uint8_t RgbLcdKeyShield::_lcdRead4() {
+	uint8_t value = 0;
+	uint8_t temp;
+	// set enable high
+	_shadowGPIOB |= B00100000;
+	_wireTransmit(GPIOB, _shadowGPIOB);
+	Wire.requestFrom(I2Caddr, GPIOB, 1);
+	temp = Wire.read();
+	// clear enable
+	_shadowGPIOB &= B11000001;
+	_wireTransmit(GPIOB, _shadowGPIOB);
+	// translate pin to nibble
+	bitWrite(value, 0, bitRead(temp, 4));
+	bitWrite(value, 1, bitRead(temp, 3));
+	bitWrite(value, 2, bitRead(temp, 2));
+	bitWrite(value, 3, bitRead(temp, 1));
+	return value;
+}
+
+/*
+ * Helper function to read a byte from the display
+ */
+inline uint8_t RgbLcdKeyShield::_lcdRead8() {
+	return (_lcdRead4() << 4) + _lcdRead4();
+}
+
+/*
+ * Helper function to cleanup after read
+ */
+inline void RgbLcdKeyShield::_cleanupRead() {
+	// set all pins back as output
+	_wireTransmit(IODIRB, B00000000);
+}
