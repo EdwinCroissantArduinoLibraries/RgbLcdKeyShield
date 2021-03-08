@@ -31,6 +31,7 @@
  * 0.0.4	2017/06/20 SimpleKeyHandler can now detect any two keys pressed
  * 0.0.5	2017/06/27 updated version
  * 0.0.6	2017/07/25 introduced read and getCursor for the lcd
+ * 0.0.7	2021/03/08 introduced inverted backlight option
  */
 
 #ifndef RgbLcdKeyShield_H
@@ -73,7 +74,7 @@ private:
 
 class RgbLcdKeyShield: public Print {
 public:
-	enum colors {
+	enum colors uint8_t {
 		clBlack = 0,
 		clRed = 1,
 		clGreen = 2,
@@ -86,7 +87,7 @@ public:
 
 	using Print::write; // pull in write(str) and write(buf, size) from Print
 
-	RgbLcdKeyShield();
+	RgbLcdKeyShieldI2C(bool invertedBacklight = false);
 
 	void begin(void);
 	void clear();
@@ -176,6 +177,8 @@ private:
 
 	// translation table from nibble to pin
 	static const uint8_t _nibbleToPin[16];
+	
+	bool _invertedBacklight;
 
 	void _wireTransmit(uint8_t reg, uint8_t value);
 	void _lcdWrite4(uint8_t value, bool lcdInstruction);

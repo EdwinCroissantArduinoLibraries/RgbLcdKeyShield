@@ -179,11 +179,12 @@ bool SimpleKeyHandler::isPressed() {
 			B10111110	// 1111
 			};
 
-RgbLcdKeyShield::RgbLcdKeyShield() {
+gbLcdKeyShieldI2C::RgbLcdKeyShieldI2C(bool invertedBacklight) {
 	_shadowGPIOA = B11000000; // set bit 6 (red led) and 7 (green led) high
 	_shadowGPIOB = B00100001; // set bit 0 (blue led) and 5 (lcd enable) high
 	_shadowDisplayControl = displayControl | displayOnFlag; // set on, no cursor and no blinking
 	_shadowEntryModeSet = entryModeSet | left2RightFlag; // left to right, no shift
+	_invertedBacklight = invertedBacklight;
 }
 
 /*
@@ -280,9 +281,11 @@ void RgbLcdKeyShield::setCursor(uint8_t col, uint8_t row) {
  * Sets the color of the backlight of the display.
  */
 void RgbLcdKeyShield::setColor(colors color) {
-	bitWrite(_shadowGPIOA, 6, !(color & clRed));
-	bitWrite(_shadowGPIOA, 7, !(color & clGreen));
-	bitWrite(_shadowGPIOB, 0, !(color & clBlue));
+	uint8_t _color;
+	_invertedBacklight ? _color =~ color : _color = color;
+	bitWrite(_shadowGPIOA, 6, !(_color & clRed));
+	bitWrite(_shadowGPIOA, 7, !(_color & clGreen));
+	bitWrite(_shadowGPIOB, 0, !(_color & clBlue));
 	_wireTransmit(GPIOA, _shadowGPIOA);
 	_wireTransmit(GPIOB, _shadowGPIOB);
 }
